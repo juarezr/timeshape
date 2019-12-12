@@ -25,6 +25,12 @@ Timeshape is published on Maven Central. The coordinates are the following:
 </dependency>
 ``` 
 
+## Adopters
+
+Are you using Timeshape? Please consider opening a pull request to list your organization here:
+
+ * Name and website of your organization
+
 ## Using the library
 
 The user API of library is in `net.iakovlev.timeshape.TimeZoneEngine` class. To use it, follow these steps:
@@ -44,6 +50,11 @@ it must be covered by the bounding box completely, not just intersect with it.
 
 During initialization, the data is read from resource and the index is built. 
 Initialization takes a significant amount of time (approximately 1 second), so do it only once in program lifetime.
+
+Data can also be read from an external file, see overloads of `TimeZoneEngine.initialize` that accept
+`TarArchiveInputStream`. The file format should be same as produced by running `builder` sbt project
+(see [here](doc/Architecture.md#builder)).
+It is responsibility of caller to close input stream passed to `TimeZoneEngine.initialize`.
 
 #### Query for `java.time.ZoneId`:
 Once initialization is completed, you can query the `ZoneId` based on latitude and longitude:
