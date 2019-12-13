@@ -15,6 +15,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 final class Index {
+
     static final class Entry {
         final ZoneId zoneId;
         final Geometry geometry;
@@ -27,11 +28,12 @@ final class Index {
 
     private static final int WGS84_WKID = 4326;
     private final ArrayList<Entry> zoneIds;
-    private static final SpatialReference spatialReference = SpatialReference.create(WGS84_WKID);
     private final QuadTree quadTree;
     private static final Logger log = LoggerFactory.getLogger(Index.class);
 
-    private Index(QuadTree quadTree, ArrayList<Entry> zoneIds) {
+    static final SpatialReference spatialReference = SpatialReference.create(WGS84_WKID);
+
+    Index(QuadTree quadTree, ArrayList<Entry> zoneIds) {
         log.info("Initialized index with {} time zones", zoneIds.size());
         this.quadTree = quadTree;
         this.zoneIds = zoneIds;
