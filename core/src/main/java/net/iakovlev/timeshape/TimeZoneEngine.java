@@ -238,4 +238,21 @@ public final class TimeZoneEngine {
             throw new RuntimeException(e);
         }
     }
+
+    public static TimeZoneEngine initialize2(final double minLat, final double minLon,
+                                            final double maxLat, final double maxLon,
+                                            final boolean accelerateGeometry) {
+
+        final Index shapes = IndexLoader.buildFrom(minLat, minLon, maxLat, maxLon, accelerateGeometry);
+        return new TimeZoneEngine(shapes);
+    }
+
+    public static TimeZoneEngine initialize2(final double minLat, final double minLon,
+                                            final double maxLat, final double maxLon,
+                                            final boolean accelerateGeometry,
+                                            final TarArchiveInputStream shapeInputStream) {
+
+        final Index shapes = IndexLoader.buildFrom(shapeInputStream, minLat, minLon, maxLat, maxLon, accelerateGeometry);
+        return new TimeZoneEngine(shapes);
+    }
 }
