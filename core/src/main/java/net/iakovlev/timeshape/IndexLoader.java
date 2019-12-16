@@ -51,6 +51,14 @@ final class IndexLoader {
         this.zoneIds = new ArrayList<>();
     }
 
+    public static Index buildFrom(final boolean accelerateGeometry) {
+        return buildFrom(MIN_LAT, MIN_LON, MAX_LAT, MAX_LON, accelerateGeometry);
+    }
+
+    public static Index buildFrom(final TarArchiveInputStream shapeInputStream, final boolean accelerateGeometry) {
+        return buildFrom(shapeInputStream, MIN_LAT, MIN_LON, MAX_LAT, MAX_LON, accelerateGeometry);
+    }
+
     public static Index buildFrom(final double minLat, final double minLon,
                                   final double maxLat, final double maxLon,
                                   final boolean accelerateGeometry) {
@@ -93,8 +101,10 @@ final class IndexLoader {
                 entry = shapeInputStream.getNextTarEntry();
             }
             loader.logUnknownZones();
+            final Index res = new Index(loader.quadTree, loader.zoneIds);
 
-            return new Index(loader.quadTree, loader.zoneIds);
+            log.info("Initialized index with {} time zones", loader.zoneIds.size());
+            return res;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -121,7 +131,7 @@ final class IndexLoader {
         }
         final boolean found = GeometryEngine.contains(boundaries, polygon, Index.spatialReference);
         if (found) {
-            log.info("Adding polygon #{} from zone {} to index", this.current, zoneIdName);
+            log.debug("Adding polygon #{} from zone {} to index", this.current, zoneIdName);
 
             final Envelope2D env = new Envelope2D();
             polygon.queryEnvelope2D(env);
@@ -130,7 +140,7 @@ final class IndexLoader {
             this.zoneIds.add(current, zoneEntry);
             this.current += 1;
         } else {
-            log.info("Not adding polygon from zone {} to index because it's out of provided boundaries", zoneIdName);
+            log.debug("Not adding polygon from zone {} to index because it's out of provided boundaries", zoneIdName);
         }
     }
 
@@ -178,7 +188,7 @@ final class IndexLoader {
                                                     final TarArchiveEntry entry) throws IOException {
 
         final int entrySize = (int) entry.getSize();
-        log.info("Processing archive entry {} with {} bytes", entry.getName(), entrySize);
+        log.debug("Processing archive entry {} with {} bytes", entry.getName(), entrySize);
         if (entrySize < 1)
             return null;
 

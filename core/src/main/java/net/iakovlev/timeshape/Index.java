@@ -1,18 +1,12 @@
 package net.iakovlev.timeshape;
 
 import com.esri.core.geometry.*;
-import net.iakovlev.timeshape.proto.Geojson;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.PrimitiveIterator;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 final class Index {
 
@@ -26,15 +20,13 @@ final class Index {
         }
     }
 
-    private static final int WGS84_WKID = 4326;
     private final ArrayList<Entry> zoneIds;
     private final QuadTree quadTree;
-    private static final Logger log = LoggerFactory.getLogger(Index.class);
 
+    private static final int WGS84_WKID = 4326;
     static final SpatialReference spatialReference = SpatialReference.create(WGS84_WKID);
 
     Index(QuadTree quadTree, ArrayList<Entry> zoneIds) {
-        log.info("Initialized index with {} time zones", zoneIds.size());
         this.quadTree = quadTree;
         this.zoneIds = zoneIds;
     }
@@ -118,73 +110,6 @@ final class Index {
         }
 
         return sameZoneSegments;
-    }
-
-    private static Polygon buildPoly(Geojson.Polygon from) {
-        Polygon poly = new Polygon();
-        from.getCoordinatesList().stream()
-                .map(Geojson.LineString::getCoordinatesList)
-                .forEachOrdered(lp -> {
-                    poly.startPath(lp.get(0).getLon(), lp.get(0).getLat());
-                    lp.subList(1, lp.size()).forEach(p -> poly.lineTo(p.getLon(), p.getLat()));
-                });
-        return poly;
-    }
-
-    static Index build(Stream<Geojson.Feature> features, int size, Envelope boundaries) {
-        return build(features, size, boundaries, false);
-    }
-
-    private static Stream<Polygon> getPolygons(Geojson.Feature f) {
-        if (f.getGeometry().hasPolygon()) {
-            return Stream.of(buildPoly(f.getGeometry().getPolygon()));
-        } else if (f.getGeometry().hasMultiPolygon()) {
-            Geojson.MultiPolygon multiPolygonProto = f.getGeometry().getMultiPolygon();
-            return multiPolygonProto.getCoordinatesList().stream().map(Index::buildPoly);
-        } else {
-            throw new RuntimeException("Unknown geometry type");
-        }
-    }
-
-    static Index build(Stream<Geojson.Feature> features, int size, Envelope boundaries, boolean accelerateGeometry) {
-        Envelope2D boundariesEnvelope = new Envelope2D();
-        boundaries.queryEnvelope2D(boundariesEnvelope);
-        QuadTree quadTree = new QuadTree(boundariesEnvelope, 8);
-        Envelope2D env = new Envelope2D();
-        ArrayList<Entry> zoneIds = new ArrayList<>(size);
-        PrimitiveIterator.OfInt indices = IntStream.iterate(0, i -> i + 1).iterator();
-        List<String> unknownZones = new ArrayList<>();
-        OperatorContains operatorContains = (OperatorContains) OperatorFactoryLocal.getInstance().getOperator(Operator.Type.Contains);
-        features.forEach(f -> {
-            String zoneIdName = f.getProperties(0).getValueString();
-            try {
-                ZoneId zoneId = ZoneId.of(zoneIdName);
-                getPolygons(f).forEach(polygon -> {
-                    if (accelerateGeometry) {
-                        operatorContains.accelerateGeometry(polygon, spatialReference, Geometry.GeometryAccelerationDegree.enumMild);
-                    }
-                    if (GeometryEngine.contains(boundaries, polygon, spatialReference)) {
-                        log.debug("Adding zone {} to index", zoneIdName);
-                        polygon.queryEnvelope2D(env);
-                        int index = indices.next();
-                        quadTree.insert(index, env);
-                        zoneIds.add(index, new Entry(zoneId, polygon));
-                    } else {
-                        log.debug("Not adding zone {} to index because it's out of provided boundaries", zoneIdName);
-                    }
-                });
-            } catch (Exception ex) {
-                unknownZones.add(zoneIdName);
-            }
-        });
-        if (unknownZones.size() != 0) {
-            String allUnknownZones = String.join(", ", unknownZones);
-            log.error(
-                    "Some of the zone ids were not recognized by the Java runtime and will be ignored. " +
-                            "The most probable reason for this is outdated Java runtime version. " +
-                            "The following zones were not recognized: " + allUnknownZones);
-        }
-        return new Index(quadTree, zoneIds);
     }
 
 }
