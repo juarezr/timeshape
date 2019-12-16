@@ -239,6 +239,17 @@ public final class TimeZoneEngine {
         }
     }
 
+    public static TimeZoneEngine initialize2() {
+        return initialize2(MIN_LAT, MIN_LON, MAX_LAT, MAX_LON, false);
+    }
+
+    public static TimeZoneEngine initialize2(final double minLat, final double minLon,
+                                            final double maxLat, final double maxLon) {
+
+        final Index shapes = IndexLoader.buildFrom(minLat, minLon, maxLat, maxLon, false);
+        return new TimeZoneEngine(shapes);
+    }
+
     public static TimeZoneEngine initialize2(final double minLat, final double minLon,
                                             final double maxLat, final double maxLon,
                                             final boolean accelerateGeometry) {

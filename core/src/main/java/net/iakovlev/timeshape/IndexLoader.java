@@ -1,10 +1,10 @@
 package net.iakovlev.timeshape;
 
 import com.esri.core.geometry.*;
+import com.github.luben.zstd.ZstdInputStream;
 import net.iakovlev.timeshape.proto.Geojson;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,14 +51,16 @@ final class IndexLoader {
     }
 
     public static Index buildFrom(final double minLat, final double minLon,
-                                  final double maxLat, final double maxLon,
-                                  final boolean accelerateGeometry) {
+                                                final double maxLat, final double maxLon,
+                                                final boolean accelerateGeometry) {
 
-        try (InputStream resourceAsStream = TimeZoneEngine.class.getResourceAsStream("/data.tar.zstd");
+        try (InputStream resourceAsStream = TimeZoneEngine.class.getResourceAsStream("/data.tar.zstd")) {
+            try (ZstdInputStream unzipStream = new ZstdInputStream(resourceAsStream)) {
+                try (TarArchiveInputStream shapeInputStream = new TarArchiveInputStream(unzipStream)) {
 
-             TarArchiveInputStream shapeInputStream = new TarArchiveInputStream(new ZstdCompressorInputStream(resourceAsStream))) {
-
-            return buildFrom(shapeInputStream, minLat, minLon, maxLat, maxLon, accelerateGeometry);
+                    return buildFrom(shapeInputStream, minLat, minLon, maxLat, maxLon, accelerateGeometry);
+                }
+            }
         } catch (NullPointerException | IOException e) {
             log.error("Unable to read resource file", e);
             throw new RuntimeException(e);
@@ -102,21 +104,21 @@ final class IndexLoader {
             final ZoneId zoneId = ZoneId.of(zoneIdName);
             final List<Polygon> polygons = convertToPolygons(feature);
             for (Polygon polygon : polygons) {
-                log.debug("Adding polygon #{} from zone {} to index", this.current, zoneIdName);
-                appendPolygon(polygon, zoneId);
+                appendPolygon(polygon, zoneId, zoneIdName);
             }
         } catch (Exception ex) {
             this.unknownZones.add(zoneIdName);
         }
     }
 
-    private void appendPolygon(final Polygon polygon, final ZoneId zoneId) {
+    private void appendPolygon(final Polygon polygon, final ZoneId zoneId, final String zoneIdName) {
 
         if (this.accelerateGeometry) {
             this.operatorContains.accelerateGeometry(polygon, Index.spatialReference, Geometry.GeometryAccelerationDegree.enumMild);
         }
         final boolean found = GeometryEngine.contains(boundaries, polygon, Index.spatialReference);
         if (found) {
+            log.info("Adding polygon #{} from zone {} to index", this.current, zoneIdName);
 
             final Envelope2D env = new Envelope2D();
             polygon.queryEnvelope2D(env);
@@ -125,7 +127,7 @@ final class IndexLoader {
             this.zoneIds.add(current, zoneEntry);
             this.current += 1;
         } else {
-            log.debug("Not adding zone {} to index because it's out of provided boundaries", zoneId);
+            log.info("Not adding zone {} to index because it's out of provided boundaries", zoneIdName);
         }
     }
 
@@ -172,7 +174,7 @@ final class IndexLoader {
     private static Geojson.Feature parseGeojsonFrom(final TarArchiveInputStream shapeInputStream,
                                                     final TarArchiveEntry entry) throws IOException {
 
-        log.debug("Processing archive entry {}", entry.getName());
+        log.info("Processing archive entry {}", entry.getName());
 
         final byte[] buffer = new byte[(int) entry.getSize()];
         final int read = shapeInputStream.read(buffer);
