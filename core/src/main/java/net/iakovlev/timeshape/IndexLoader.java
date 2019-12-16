@@ -8,6 +8,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.ZoneId;
@@ -51,14 +52,16 @@ final class IndexLoader {
     }
 
     public static Index buildFrom(final double minLat, final double minLon,
-                                                final double maxLat, final double maxLon,
-                                                final boolean accelerateGeometry) {
+                                  final double maxLat, final double maxLon,
+                                  final boolean accelerateGeometry) {
 
         try (InputStream resourceAsStream = TimeZoneEngine.class.getResourceAsStream("/data.tar.zstd")) {
             try (ZstdInputStream unzipStream = new ZstdInputStream(resourceAsStream)) {
-                try (TarArchiveInputStream shapeInputStream = new TarArchiveInputStream(unzipStream)) {
+                try (BufferedInputStream bufferedStream = new BufferedInputStream(unzipStream)) {
+                    try (TarArchiveInputStream shapeInputStream = new TarArchiveInputStream(bufferedStream)) {
 
-                    return buildFrom(shapeInputStream, minLat, minLon, maxLat, maxLon, accelerateGeometry);
+                        return buildFrom(shapeInputStream, minLat, minLon, maxLat, maxLon, accelerateGeometry);
+                    }
                 }
             }
         } catch (NullPointerException | IOException e) {
@@ -127,7 +130,7 @@ final class IndexLoader {
             this.zoneIds.add(current, zoneEntry);
             this.current += 1;
         } else {
-            log.info("Not adding zone {} to index because it's out of provided boundaries", zoneIdName);
+            log.info("Not adding polygon from zone {} to index because it's out of provided boundaries", zoneIdName);
         }
     }
 
@@ -174,9 +177,12 @@ final class IndexLoader {
     private static Geojson.Feature parseGeojsonFrom(final TarArchiveInputStream shapeInputStream,
                                                     final TarArchiveEntry entry) throws IOException {
 
-        log.info("Processing archive entry {}", entry.getName());
+        final int entrySize = (int) entry.getSize();
+        log.info("Processing archive entry {} with {} bytes", entry.getName(), entrySize);
+        if (entrySize < 1)
+            return null;
 
-        final byte[] buffer = new byte[(int) entry.getSize()];
+        final byte[] buffer = new byte[entrySize];
         final int read = shapeInputStream.read(buffer);
         if (read < 1)
             return null;
