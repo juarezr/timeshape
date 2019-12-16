@@ -4,8 +4,8 @@ import _root_.io.circe.parser._
 val dataVersion = "2019b"
 val softwareVersion = "8-SNAPSHOT"
 val `commons-compress` = Seq(
-  "org.apache.commons" % "commons-compress" % "1.18",
-  "com.github.luben" % "zstd-jni" % "1.3.7-1"
+  "org.apache.commons" % "commons-compress" % "1.19",
+  "com.github.luben" % "zstd-jni" % "1.4.4-3"
 )
 val commonSettings = Seq(
   organization := "net.iakovlev",
@@ -68,6 +68,7 @@ lazy val core = (project in file("core"))
         log.info(s"running $command")
         command.!
       } else {
+
         log.info("Timeshape resource exists, skipping creation")
       }
       Def.task(Seq(outputFile))
